@@ -35,7 +35,12 @@ const (
 	ColPayments       = "payments"
 	ColReviews        = "reviews"
 	ColNotifications  = "notifications"
-	ColFamilyMembers  = "family_members"
+	ColFamilyMembers      = "family_members"
+	ColSubscriptionPlans  = "subscription_plans"
+	ColUserSubscriptions  = "user_subscriptions"
+	ColSupportTickets     = "support_tickets"
+	ColPlatformSettings   = "platform_settings"
+	ColServiceZones       = "service_zones"
 )
 
 func Connect() {
@@ -94,10 +99,31 @@ func createIndexes() {
 		Keys: bson.D{{Key: "approval_status", Value: 1}},
 	})
 
-	// Hospitals: unique registration_number
+	// Hospitals: unique registration_number + 2dsphere geo index
 	Col(ColHospitals).Indexes().CreateOne(ctx, mongo.IndexModel{
 		Keys:    bson.D{{Key: "registration_number", Value: 1}},
 		Options: options.Index().SetUnique(true),
+	})
+	Col(ColHospitals).Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{{Key: "location", Value: "2dsphere"}},
+	})
+
+	// Professionals: 2dsphere geo index
+	Col(ColProfessionals).Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{{Key: "location", Value: "2dsphere"}},
+	})
+
+	// Doctors: specialty search + 2dsphere
+	Col(ColDoctors).Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{{Key: "location", Value: "2dsphere"}},
+	})
+
+	// Ambulances: 2dsphere for real-time tracking
+	Col(ColAmbulances).Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{{Key: "location", Value: "2dsphere"}},
+	})
+	Col(ColAmbulances).Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{{Key: "emergency_id", Value: 1}},
 	})
 
 	// Bookings & Appointments
@@ -108,7 +134,7 @@ func createIndexes() {
 		Keys: bson.D{{Key: "patient_user_id", Value: 1}, {Key: "status", Value: 1}},
 	})
 
-	// Emergencies
+	// Emergencies: status + patient geo
 	Col(ColEmergencies).Indexes().CreateOne(ctx, mongo.IndexModel{
 		Keys: bson.D{{Key: "status", Value: 1}},
 	})
@@ -122,6 +148,21 @@ func createIndexes() {
 	Col(ColCartItems).Indexes().CreateOne(ctx, mongo.IndexModel{
 		Keys:    bson.D{{Key: "user_id", Value: 1}, {Key: "service_id", Value: 1}},
 		Options: options.Index().SetUnique(true),
+	})
+
+	// Support tickets
+	Col(ColSupportTickets).Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{{Key: "user_id", Value: 1}, {Key: "status", Value: 1}},
+	})
+
+	// User subscriptions
+	Col(ColUserSubscriptions).Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{{Key: "user_id", Value: 1}, {Key: "status", Value: 1}},
+	})
+
+	// Service zones
+	Col(ColServiceZones).Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{{Key: "city", Value: 1}, {Key: "status", Value: 1}},
 	})
 
 	log.Println("MongoDB indexes created")

@@ -58,6 +58,9 @@ func TriggerSOS(c *gin.Context) {
 	database.Col(database.ColEmergencies).UpdateOne(ctx, bson.M{"_id": emergency.ID},
 		bson.M{"$set": bson.M{"family_notified": len(family) > 0}})
 
+	// Real-time: notify all admins of the new SOS
+	BroadcastNewEmergency(emergency)
+
 	utils.CreatedResponse(c, "Emergency triggered. Help is on the way.", emergency)
 }
 
@@ -150,6 +153,9 @@ func UpdateEmergencyStatus(c *gin.Context) {
 			"Emergency Update", "Your emergency status: "+string(req.Status),
 			"EMERGENCY", emergencyID)
 	}
+
+	// Real-time: push status update to patient and admin rooms
+	BroadcastEmergencyStatus(emergencyID, emergency)
 
 	utils.SuccessResponse(c, "Emergency status updated", nil)
 }

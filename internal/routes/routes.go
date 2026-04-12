@@ -11,12 +11,18 @@ import (
 func Setup(r *gin.Engine) {
 	api := r.Group("/api")
 
+	// ── WebSocket (token auth via query param) ───────────────────────────────
+	api.GET("/ws", handlers.ConnectWS)
+
 	// ── Public ──────────────────────────────────────────────────────────────
-	auth := api.Group("")
+	auth := api.Group("/auth")
 	{
-		auth.POST("/login", handlers.Login)
-		auth.POST("/verify", handlers.VerifyOTP)
+		auth.POST("/send-otp", middleware.OTPRateLimit(), handlers.Login)
+		auth.POST("/verify-otp", middleware.OTPRateLimit(), handlers.VerifyOTP)
 	}
+	// Legacy aliases for backward compatibility
+	api.POST("/login", middleware.OTPRateLimit(), handlers.Login)
+	api.POST("/verify", middleware.OTPRateLimit(), handlers.VerifyOTP)
 
 	// ── Authenticated ────────────────────────────────────────────────────────
 	protected := api.Group("")
@@ -125,6 +131,20 @@ func Setup(r *gin.Engine) {
 		// Reviews
 		protected.POST("/reviews", handlers.SubmitReview)
 
+		// Chatbot
+		chatbot := protected.Group("/chatbot")
+		{
+			chatbot.POST("/message", handlers.SendChatMessage)
+			chatbot.GET("/history", handlers.GetChatHistory)
+		}
+
+		// Support tickets (any authenticated user)
+		support := protected.Group("/support")
+		{
+			support.POST("", handlers.CreateSupportTicket)
+			support.GET("", handlers.GetMyTickets)
+		}
+
 		// Hospitals (public read, authenticated write)
 		hospitals := protected.Group("/hospitals")
 		{
@@ -196,5 +216,38 @@ func Setup(r *gin.Engine) {
 
 		admin.GET("/emergencies/active", handlers.GetActiveEmergencies)
 		admin.PATCH("/emergencies/:emergencyId/status", handlers.UpdateEmergencyStatus)
+
+		admin.GET("/appointments", handlers.AdminListAppointments)
+
+		// Support tickets
+		admin.GET("/support", handlers.AdminListSupportTickets)
+		admin.GET("/support/:ticketId", handlers.AdminGetSupportTicket)
+		admin.PATCH("/support/:ticketId", handlers.AdminUpdateSupportTicket)
+
+		// Subscription plans
+		admin.GET("/plans", handlers.AdminListSubscriptionPlans)
+		admin.POST("/plans", handlers.AdminCreateSubscriptionPlan)
+		admin.PUT("/plans/:planId", handlers.AdminUpdateSubscriptionPlan)
+		admin.DELETE("/plans/:planId", handlers.AdminDeleteSubscriptionPlan)
+		admin.GET("/subscriptions", handlers.AdminListUserSubscriptions)
+
+		// Service zones
+		admin.GET("/zones", handlers.AdminListZones)
+		admin.POST("/zones", handlers.AdminCreateZone)
+		admin.PUT("/zones/:zoneId", handlers.AdminUpdateZone)
+	}
+
+	// ── Super Admin only ──────────────────────────────────────────────────────
+	superAdmin := api.Group("/super-admin")
+	superAdmin.Use(middleware.AuthRequired(), middleware.RoleRequired(
+		string(models.RoleSuperAdmin),
+	))
+	{
+		superAdmin.GET("/revenue", handlers.SuperAdminRevenueReport)
+		superAdmin.GET("/admins", handlers.SuperAdminListAdmins)
+		superAdmin.POST("/admins", handlers.SuperAdminCreateAdmin)
+		superAdmin.DELETE("/admins/:adminId", handlers.SuperAdminDeleteAdmin)
+		superAdmin.GET("/settings", handlers.GetPlatformSettings)
+		superAdmin.PUT("/settings", handlers.UpdatePlatformSettings)
 	}
 }

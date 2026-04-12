@@ -2,6 +2,18 @@ package models
 
 import "time"
 
+// GeoPoint is a GeoJSON Point for MongoDB 2dsphere geospatial queries.
+// Coordinates are [longitude, latitude] per GeoJSON spec.
+type GeoPoint struct {
+	Type        string    `bson:"type"        json:"type"`        // always "Point"
+	Coordinates []float64 `bson:"coordinates" json:"coordinates"` // [lng, lat]
+}
+
+// NewGeoPoint creates a GeoJSON Point from lat/lng values.
+func NewGeoPoint(lat, lng float64) *GeoPoint {
+	return &GeoPoint{Type: "Point", Coordinates: []float64{lng, lat}}
+}
+
 type HospitalApprovalStatus string
 
 const (
@@ -21,6 +33,7 @@ type Hospital struct {
 	PinCode            string                 `bson:"pin_code,omitempty"          json:"pin_code,omitempty"`
 	Latitude           string                 `bson:"latitude,omitempty"          json:"latitude,omitempty"`
 	Longitude          string                 `bson:"longitude,omitempty"         json:"longitude,omitempty"`
+	Location           *GeoPoint              `bson:"location,omitempty"          json:"location,omitempty"`
 	ServiceZone        string                 `bson:"service_zone,omitempty"      json:"service_zone,omitempty"`
 	PhoneNumber        string                 `bson:"phone_number"                json:"phone_number"`
 	Email              string                 `bson:"email,omitempty"             json:"email,omitempty"`
@@ -29,6 +42,7 @@ type Hospital struct {
 	AmbulanceCount     int                    `bson:"ambulance_count"             json:"ambulance_count"`
 	OperatingHours     string                 `bson:"operating_hours,omitempty"   json:"operating_hours,omitempty"`
 	Specialties        string                 `bson:"specialties,omitempty"       json:"specialties,omitempty"`
+	DistanceKm         float64                `bson:"distance_km,omitempty"       json:"distance_km,omitempty"`
 	ApprovalStatus     HospitalApprovalStatus `bson:"approval_status"             json:"approval_status"`
 	IsActive           bool                   `bson:"is_active"                   json:"is_active"`
 	CreatedAt          time.Time              `bson:"created_at"                  json:"created_at"`
@@ -36,17 +50,19 @@ type Hospital struct {
 }
 
 type Ambulance struct {
-	ID               string    `bson:"_id,omitempty"              json:"ambulance_id"`
-	HospitalID       string    `bson:"hospital_id"                json:"hospital_id"`
-	VehicleNumber    string    `bson:"vehicle_number"             json:"vehicle_number"`
-	DriverName       string    `bson:"driver_name"                json:"driver_name"`
-	DriverPhone      string    `bson:"driver_phone"               json:"driver_phone"`
-	AmbulanceType    string    `bson:"ambulance_type"             json:"ambulance_type"` // BASIC | ADVANCED | ICU
-	IsAvailable      bool      `bson:"is_available"               json:"is_available"`
-	CurrentLatitude  string    `bson:"current_latitude,omitempty" json:"current_latitude,omitempty"`
+	ID               string    `bson:"_id,omitempty"               json:"ambulance_id"`
+	HospitalID       string    `bson:"hospital_id"                 json:"hospital_id"`
+	VehicleNumber    string    `bson:"vehicle_number"              json:"vehicle_number"`
+	DriverName       string    `bson:"driver_name"                 json:"driver_name"`
+	DriverPhone      string    `bson:"driver_phone"                json:"driver_phone"`
+	AmbulanceType    string    `bson:"ambulance_type"              json:"ambulance_type"` // BASIC | ADVANCED | ICU
+	IsAvailable      bool      `bson:"is_available"                json:"is_available"`
+	CurrentLatitude  string    `bson:"current_latitude,omitempty"  json:"current_latitude,omitempty"`
 	CurrentLongitude string    `bson:"current_longitude,omitempty" json:"current_longitude,omitempty"`
-	CreatedAt        time.Time `bson:"created_at"                 json:"created_at"`
-	UpdatedAt        time.Time `bson:"updated_at"                 json:"updated_at"`
+	Location         *GeoPoint `bson:"location,omitempty"          json:"location,omitempty"`
+	EmergencyID      string    `bson:"emergency_id,omitempty"      json:"emergency_id,omitempty"`
+	CreatedAt        time.Time `bson:"created_at"                  json:"created_at"`
+	UpdatedAt        time.Time `bson:"updated_at"                  json:"updated_at"`
 }
 
 // ---- DTOs ----

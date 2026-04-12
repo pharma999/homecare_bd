@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	"home_care_backend/internal/database"
@@ -201,8 +202,8 @@ func AddAmbulance(c *gin.Context) {
 func UpdateAmbulanceLocation(c *gin.Context) {
 	ambulanceID := c.Param("ambulanceId")
 	var req struct {
-		Latitude    string `json:"latitude"     binding:"required"`
-		Longitude   string `json:"longitude"    binding:"required"`
+		Latitude    string `json:"latitude"      binding:"required"`
+		Longitude   string `json:"longitude"     binding:"required"`
 		IsAvailable *bool  `json:"is_available"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -210,24 +211,82 @@ func UpdateAmbulanceLocation(c *gin.Context) {
 		return
 	}
 
-	set := bson.M{"current_latitude": req.Latitude, "current_longitude": req.Longitude, "updated_at": time.Now()}
+	lat, errLat := strconv.ParseFloat(req.Latitude, 64)
+	lng, errLng := strconv.ParseFloat(req.Longitude, 64)
+
+	set := bson.M{
+		"current_latitude":  req.Latitude,
+		"current_longitude": req.Longitude,
+		"updated_at":        time.Now(),
+	}
+	if errLat == nil && errLng == nil {
+		set["location"] = models.NewGeoPoint(lat, lng)
+	}
 	if req.IsAvailable != nil {
 		set["is_available"] = *req.IsAvailable
 	}
-	database.Col(database.ColAmbulances).UpdateOne(context.Background(), bson.M{"_id": ambulanceID}, bson.M{"$set": set})
+
+	ctx := context.Background()
+	database.Col(database.ColAmbulances).UpdateOne(ctx, bson.M{"_id": ambulanceID}, bson.M{"$set": set})
+
+	// Broadcast live location to the emergency room the ambulance is assigned to
+	var amb models.Ambulance
+	if err := database.Col(database.ColAmbulances).FindOne(ctx, bson.M{"_id": ambulanceID}).Decode(&amb); err == nil {
+		if amb.EmergencyID != "" {
+			BroadcastAmbulanceLocation(amb.EmergencyID, map[string]interface{}{
+				"ambulance_id": ambulanceID,
+				"latitude":     req.Latitude,
+				"longitude":    req.Longitude,
+				"updated_at":   time.Now(),
+			})
+		}
+	}
+
 	utils.SuccessResponse(c, "Ambulance location updated", nil)
 }
 
 func GetNearbyHospitals(c *gin.Context) {
-	city := c.Query("city")
+	ctx := context.Background()
 	query := bson.M{"approval_status": models.HospitalApprovalApproved, "is_active": true}
-	if city != "" {
+
+	latStr := c.Query("lat")
+	lngStr := c.Query("lng")
+	radiusStr := c.Query("radius") // metres, default 10 km
+	hasEmergency := c.Query("has_emergency")
+	city := c.Query("city")
+
+	if hasEmergency == "true" {
+		query["has_emergency"] = true
+	}
+
+	var hospitals []models.Hospital
+
+	if latStr != "" && lngStr != "" {
+		lat, errLat := strconv.ParseFloat(latStr, 64)
+		lng, errLng := strconv.ParseFloat(lngStr, 64)
+		if errLat == nil && errLng == nil {
+			radiusMetres := 10000.0
+			if r, err := strconv.ParseFloat(radiusStr, 64); err == nil && r > 0 {
+				radiusMetres = r
+			}
+			// $near requires 2dsphere index on "location" field
+			query["location"] = bson.M{
+				"$near": bson.M{
+					"$geometry":    bson.M{"type": "Point", "coordinates": []float64{lng, lat}},
+					"$maxDistance": radiusMetres,
+				},
+			}
+		}
+	} else if city != "" {
 		query["city"] = bson.M{"$regex": city, "$options": "i"}
 	}
 
-	cursor, _ := database.Col(database.ColHospitals).Find(context.Background(), query)
-	var hospitals []models.Hospital
-	cursor.All(context.Background(), &hospitals)
+	cursor, err := database.Col(database.ColHospitals).Find(ctx, query)
+	if err != nil {
+		utils.InternalServerErrorResponse(c, "Failed to fetch hospitals")
+		return
+	}
+	cursor.All(ctx, &hospitals)
 	utils.SuccessResponse(c, "Hospitals fetched", hospitals)
 }
 

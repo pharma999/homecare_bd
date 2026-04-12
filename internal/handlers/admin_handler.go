@@ -320,7 +320,7 @@ func AdminAnalytics(c *gin.Context) {
 		utils.ForbiddenResponse(c, "Access denied")
 		return
 	}
-	ctx := context.Background()
+	ctx := c.Request.Context()
 
 	totalUsers, _ := database.Col(database.ColUsers).CountDocuments(ctx, bson.M{})
 	totalDoctors, _ := database.Col(database.ColDoctors).CountDocuments(ctx,
@@ -337,8 +337,23 @@ func AdminAnalytics(c *gin.Context) {
 			string(models.EmergencyStatusCancelled),
 		}}})
 
+	// Pending approvals (doctors + nurses + hospitals)
+	pendingDoctors, _ := database.Col(database.ColDoctors).CountDocuments(ctx,
+		bson.M{"approval_status": models.DoctorApprovalPending})
+	pendingNurses, _ := database.Col(database.ColNurses).CountDocuments(ctx,
+		bson.M{"approval_status": models.NurseApprovalPending})
+	pendingHospitals, _ := database.Col(database.ColHospitals).CountDocuments(ctx,
+		bson.M{"approval_status": models.HospitalApprovalPending})
+	pendingApprovals := pendingDoctors + pendingNurses + pendingHospitals
+
+	// Open support tickets
+	openTickets, _ := database.Col(database.ColSupportTickets).CountDocuments(ctx,
+		bson.M{"status": bson.M{"$in": []string{
+			string(models.TicketOpen), string(models.TicketInProgress),
+		}}})
+
 	pipeline := mongo.Pipeline{
-		{{Key: "$match", Value: bson.M{"status": "SUCCESS"}}},
+		{{Key: "$match", Value: bson.M{"status": "COMPLETED"}}},
 		{{Key: "$group", Value: bson.M{"_id": nil, "total": bson.M{"$sum": "$amount"}}}},
 	}
 	cursor, _ := database.Col(database.ColPayments).Aggregate(ctx, pipeline)
@@ -359,6 +374,8 @@ func AdminAnalytics(c *gin.Context) {
 		"total_bookings":     totalBookings,
 		"total_appointments": totalAppointments,
 		"active_emergencies": activeEmergencies,
+		"pending_approvals":  pendingApprovals,
+		"open_tickets":       openTickets,
 		"total_revenue":      totalRevenue,
 	})
 }

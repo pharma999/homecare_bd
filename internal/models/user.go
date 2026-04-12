@@ -2,30 +2,87 @@ package models
 
 import "time"
 
-type GenderType string
+// Gender represents the gender of a user
+type Gender string
+
+const (
+	Male   Gender = "MALE"
+	Female Gender = "FEMALE"
+	Other  Gender = "OTHER"
+)
+
+// GenderType alias kept for backward compat
+type GenderType = Gender
+
+// UserStatus represents the account status of a user
 type UserStatus string
+
+const (
+	Active    UserStatus = "ACTIVE"
+	Inactive  UserStatus = "INACTIVE"
+	Suspended UserStatus = "SUSPENDED"
+)
+
+// Legacy aliases
+const (
+	UserStatusActive    = Active
+	UserStatusInactive  = Inactive
+	UserStatusSuspended = Suspended
+)
+
+// BlockStatus represents the block status of a user
 type BlockStatus string
+
+const (
+	Blocked   BlockStatus = "BLOCKED"
+	Unblocked BlockStatus = "UNBLOCKED"
+)
+
+// Legacy aliases
+const (
+	BlockStatusBlocked   = Blocked
+	BlockStatusUnblocked = Unblocked
+)
+
+// UserServiceStatus represents the service subscription status of a user
 type UserServiceStatus string
-type ServiceStatusType string
+
+const (
+	Subscribed   UserServiceStatus = "SUBSCRIBED"
+	Unsubscribed UserServiceStatus = "UNSUBSCRIBED"
+	Trial        UserServiceStatus = "TRIAL"
+)
+
+// Legacy aliases
+const (
+	UserServiceSubscribed   = Subscribed
+	UserServiceUnsubscribed = Unsubscribed
+	UserServiceTrial        = Trial
+)
+
+// ServiceStatus represents the number of services a user has
+type ServiceStatus string
+
+const (
+	New       ServiceStatus = "NEW"
+	Secondary ServiceStatus = "SECONDARY"
+	Multiple  ServiceStatus = "MULTIPLE"
+)
+
+// ServiceStatusType alias for backward compat
+type ServiceStatusType = ServiceStatus
+
+// Legacy aliases
+const (
+	ServiceStatusNew       = New
+	ServiceStatusSecondary = Secondary
+	ServiceStatusMultiple  = Multiple
+)
+
+// UserRole represents the role of a user
 type UserRole string
 
 const (
-	GenderMale   GenderType = "MALE"
-	GenderFemale GenderType = "FEMALE"
-	GenderOther  GenderType = "OTHER"
-
-	UserStatusActive   UserStatus = "ACTIVE"
-	UserStatusInactive UserStatus = "INACTIVE"
-
-	BlockStatusUnblocked BlockStatus = "UNBLOCKED"
-	BlockStatusBlocked   BlockStatus = "BLOCKED"
-
-	UserServiceUnsubscribed UserServiceStatus = "UNSUBSCRIBED"
-	UserServiceSubscribed   UserServiceStatus = "SUBSCRIBED"
-
-	ServiceStatusNew    ServiceStatusType = "NEW"
-	ServiceStatusActive ServiceStatusType = "ACTIVE"
-
 	RolePatient    UserRole = "PATIENT"
 	RoleFamily     UserRole = "FAMILY"
 	RoleDoctor     UserRole = "DOCTOR"
@@ -70,13 +127,14 @@ type Address struct {
 	CreatedAt   time.Time `bson:"created_at"            json:"created_at"`
 }
 
+// OTP stores verification data linked to MessageCentral's verificationId
 type OTP struct {
-	ID          string    `bson:"_id,omitempty"`
-	PhoneNumber string    `bson:"phone_number"`
-	OTPCode     string    `bson:"otp_code"`
-	IsUsed      bool      `bson:"is_used"`
-	ExpiresAt   time.Time `bson:"expires_at"`
-	CreatedAt   time.Time `bson:"created_at"`
+	ID             string    `bson:"_id,omitempty"`
+	PhoneNumber    string    `bson:"phone_number"`
+	VerificationID string    `bson:"verification_id"` // from MessageCentral
+	IsUsed         bool      `bson:"is_used"`
+	ExpiresAt      time.Time `bson:"expires_at"`
+	CreatedAt      time.Time `bson:"created_at"`
 }
 
 type FamilyMember struct {
