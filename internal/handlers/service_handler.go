@@ -66,11 +66,17 @@ func GetProfessionals(c *gin.Context) {
 			bson.M{"role": bson.M{"$regex": s, "$options": "i"}},
 		}
 	}
+	if zoneID := c.Query("zone_id"); zoneID != "" {
+		query["zone_id"] = zoneID
+	}
 
 	ctx := context.Background()
 	cursor, _ := database.Col(database.ColProfessionals).Find(ctx, query)
 	var pros []models.Professional
 	cursor.All(ctx, &pros)
+
+	// Pre-fetch zone names for efficiency
+	zoneNames := map[string]string{}
 
 	responses := make([]models.ProfessionalResponse, 0, len(pros))
 	for _, p := range pros {
@@ -78,10 +84,14 @@ func GetProfessionals(c *gin.Context) {
 			ID:                 p.ID,
 			Role:               p.Role,
 			ServiceName:        p.ServiceName,
+			ZoneID:             p.ZoneID,
+			Bio:                p.Bio,
+			Qualification:      p.Qualification,
 			Rating:             p.Rating,
 			Available:          p.IsAvailable,
 			YearsExperience:    p.YearsOfExperience,
 			EstimatedDuration:  p.EstimatedDuration,
+			HourlyRate:         p.HourlyRate,
 			AvailableTimeStart: p.AvailableTimeStart,
 			AvailableTimeEnd:   p.AvailableTimeEnd,
 		}
@@ -89,6 +99,17 @@ func GetProfessionals(c *gin.Context) {
 		if err := database.Col(database.ColUsers).FindOne(ctx, bson.M{"_id": p.UserID}).Decode(&u); err == nil {
 			r.Name = u.Name
 			r.ImageURL = u.ProfileImage
+		}
+		if p.ZoneID != "" {
+			if name, ok := zoneNames[p.ZoneID]; ok {
+				r.ZoneName = name
+			} else {
+				var z models.ServiceZone
+				if err := database.Col(database.ColServiceZones).FindOne(ctx, bson.M{"_id": p.ZoneID}).Decode(&z); err == nil {
+					zoneNames[p.ZoneID] = z.Name
+					r.ZoneName = z.Name
+				}
+			}
 		}
 		responses = append(responses, r)
 	}

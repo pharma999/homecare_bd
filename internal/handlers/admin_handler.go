@@ -422,3 +422,143 @@ func AdminUpdateBookingStatus(c *gin.Context) {
 		bson.M{"_id": bookingID}, bson.M{"$set": set})
 	utils.SuccessResponse(c, "Booking updated", nil)
 }
+
+// ---- Professional Management (admin-created) ----
+
+func AdminListProfessionals(c *gin.Context) {
+	ctx := c.Request.Context()
+	query := bson.M{}
+	if zoneID := c.Query("zone_id"); zoneID != "" {
+		query["zone_id"] = zoneID
+	}
+	if role := c.Query("role"); role != "" {
+		query["role"] = role
+	}
+
+	cursor, _ := database.Col(database.ColProfessionals).Find(ctx, query)
+	var pros []models.Professional
+	cursor.All(ctx, &pros)
+
+	zoneNames := map[string]string{}
+	responses := make([]models.ProfessionalResponse, 0, len(pros))
+	for _, p := range pros {
+		r := models.ProfessionalResponse{
+			ID:                 p.ID,
+			Role:               p.Role,
+			ServiceName:        p.ServiceName,
+			ZoneID:             p.ZoneID,
+			Bio:                p.Bio,
+			Qualification:      p.Qualification,
+			Rating:             p.Rating,
+			Available:          p.IsAvailable,
+			YearsExperience:    p.YearsOfExperience,
+			EstimatedDuration:  p.EstimatedDuration,
+			HourlyRate:         p.HourlyRate,
+			AvailableTimeStart: p.AvailableTimeStart,
+			AvailableTimeEnd:   p.AvailableTimeEnd,
+		}
+		var u models.User
+		if err := database.Col(database.ColUsers).FindOne(ctx, bson.M{"_id": p.UserID}).Decode(&u); err == nil {
+			r.Name = u.Name
+			r.ImageURL = u.ProfileImage
+		}
+		if p.ZoneID != "" {
+			if name, ok := zoneNames[p.ZoneID]; ok {
+				r.ZoneName = name
+			} else {
+				var z models.ServiceZone
+				if err := database.Col(database.ColServiceZones).FindOne(ctx, bson.M{"_id": p.ZoneID}).Decode(&z); err == nil {
+					zoneNames[p.ZoneID] = z.Name
+					r.ZoneName = z.Name
+				}
+			}
+		}
+		responses = append(responses, r)
+	}
+	utils.SuccessResponse(c, "Professionals fetched", responses)
+}
+
+func AdminCreateProfessional(c *gin.Context) {
+	var req struct {
+		Name               string  `json:"name"                 binding:"required"`
+		Role               string  `json:"role"                 binding:"required"`
+		ServiceName        string  `json:"service_name"         binding:"required"`
+		ZoneID             string  `json:"zone_id"`
+		Phone              string  `json:"phone"`
+		Bio                string  `json:"bio"`
+		Qualification      string  `json:"qualification"`
+		YearsOfExperience  int     `json:"years_of_experience"`
+		EstimatedDuration  int     `json:"estimated_duration"`
+		HourlyRate         float64 `json:"hourly_rate"`
+		AvailableTimeStart string  `json:"available_time_start"`
+		AvailableTimeEnd   string  `json:"available_time_end"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequestResponse(c, err.Error())
+		return
+	}
+
+	ctx := c.Request.Context()
+
+	// Create a user account for the professional (or reuse by phone)
+	userID := ""
+	if req.Phone != "" {
+		var existing models.User
+		if err := database.Col(database.ColUsers).FindOne(ctx, bson.M{"phone_number": req.Phone}).Decode(&existing); err == nil {
+			userID = existing.ID
+		}
+	}
+	if userID == "" {
+		now := time.Now()
+		newUser := models.User{
+			ID:          uuid.New().String(),
+			Name:        req.Name,
+			PhoneNumber: req.Phone,
+			Role:        models.UserRole(req.Role),
+			Status:      "ACTIVE",
+			CreatedAt:   now,
+			UpdatedAt:   now,
+		}
+		database.Col(database.ColUsers).InsertOne(ctx, newUser)
+		userID = newUser.ID
+	}
+
+	now := time.Now()
+	pro := models.Professional{
+		ID:                 uuid.New().String(),
+		UserID:             userID,
+		ZoneID:             req.ZoneID,
+		Role:               req.Role,
+		ServiceName:        req.ServiceName,
+		Bio:                req.Bio,
+		Qualification:      req.Qualification,
+		IsAvailable:        true,
+		YearsOfExperience:  req.YearsOfExperience,
+		EstimatedDuration:  req.EstimatedDuration,
+		HourlyRate:         req.HourlyRate,
+		AvailableTimeStart: req.AvailableTimeStart,
+		AvailableTimeEnd:   req.AvailableTimeEnd,
+		CreatedAt:          now,
+		UpdatedAt:          now,
+	}
+	database.Col(database.ColProfessionals).InsertOne(ctx, pro)
+	utils.CreatedResponse(c, "Professional created", gin.H{
+		"id":           pro.ID,
+		"user_id":      userID,
+		"name":         req.Name,
+		"role":         pro.Role,
+		"service_name": pro.ServiceName,
+		"zone_id":      pro.ZoneID,
+	})
+}
+
+func AdminDeleteProfessional(c *gin.Context) {
+	proID := c.Param("professionalId")
+	ctx := c.Request.Context()
+	res, err := database.Col(database.ColProfessionals).DeleteOne(ctx, bson.M{"_id": proID})
+	if err != nil || res.DeletedCount == 0 {
+		utils.NotFoundResponse(c, "Professional not found")
+		return
+	}
+	utils.SuccessResponse(c, "Professional deleted", nil)
+}

@@ -36,12 +36,16 @@ type Service struct {
 type Professional struct {
 	ID                 string    `bson:"_id,omitempty"                  json:"id"`
 	UserID             string    `bson:"user_id"                        json:"user_id"`
+	ZoneID             string    `bson:"zone_id,omitempty"              json:"zone_id,omitempty"`
 	Role               string    `bson:"role"                           json:"role"`
 	ServiceName        string    `bson:"service_name"                   json:"service_name"`
+	Bio                string    `bson:"bio,omitempty"                  json:"bio,omitempty"`
+	Qualification      string    `bson:"qualification,omitempty"        json:"qualification,omitempty"`
 	Rating             float64   `bson:"rating"                         json:"rating"`
 	IsAvailable        bool      `bson:"is_available"                   json:"available"`
 	YearsOfExperience  int       `bson:"years_of_experience"            json:"years_experience"`
 	EstimatedDuration  int       `bson:"estimated_duration"             json:"estimated_duration"`
+	HourlyRate         float64   `bson:"hourly_rate,omitempty"          json:"hourly_rate,omitempty"`
 	AvailableTimeStart string    `bson:"available_time_start,omitempty" json:"available_time_start,omitempty"`
 	AvailableTimeEnd   string    `bson:"available_time_end,omitempty"   json:"available_time_end,omitempty"`
 	Latitude           string    `bson:"latitude,omitempty"             json:"latitude,omitempty"`
@@ -55,12 +59,17 @@ type ProfessionalResponse struct {
 	Name               string  `json:"name"`
 	Role               string  `json:"role"`
 	ServiceName        string  `json:"service_name"`
+	ZoneID             string  `json:"zone_id,omitempty"`
+	ZoneName           string  `json:"zone_name,omitempty"`
+	Bio                string  `json:"bio,omitempty"`
+	Qualification      string  `json:"qualification,omitempty"`
 	Distance           string  `json:"distance,omitempty"`
 	Rating             float64 `json:"rating"`
 	Available          bool    `json:"available"`
 	ImageURL           string  `json:"image_url,omitempty"`
 	YearsExperience    int     `json:"years_experience"`
 	EstimatedDuration  int     `json:"estimated_duration"`
+	HourlyRate         float64 `json:"hourly_rate,omitempty"`
 	AvailableTimeStart string  `json:"available_time_start,omitempty"`
 	AvailableTimeEnd   string  `json:"available_time_end,omitempty"`
 }

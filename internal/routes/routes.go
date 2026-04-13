@@ -235,6 +235,11 @@ func Setup(r *gin.Engine) {
 		admin.GET("/zones", handlers.AdminListZones)
 		admin.POST("/zones", handlers.AdminCreateZone)
 		admin.PUT("/zones/:zoneId", handlers.AdminUpdateZone)
+
+		// Professionals (admin-managed)
+		admin.GET("/professionals", handlers.AdminListProfessionals)
+		admin.POST("/professionals", handlers.AdminCreateProfessional)
+		admin.DELETE("/professionals/:professionalId", handlers.AdminDeleteProfessional)
 	}
 
 	// ── Super Admin only ──────────────────────────────────────────────────────
